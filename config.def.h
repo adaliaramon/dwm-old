@@ -25,16 +25,16 @@ static const Rule rules[] = {
 	 *	WM_CLASS(STRING) = instance, class
 	 *	WM_NAME(STRING) = title
 	 */
-	/* class      instance    title       tags mask     isfloating   monitor */
+	/* class      instance    title       tags mask     isFloating   monitor */
 	{ "Gimp",     NULL,       NULL,       0,            1,           -1 },
 	{ "Firefox",  NULL,       NULL,       1 << 8,       0,           -1 },
 };
 
 /* layout(s) */
-static const float mfact     = 0.5f; /* factor of master area size [0.05..0.95] */
-static const int nmaster     = 1;    /* number of clients in master area */
-static const int resizehints = 1;    /* 1 means respect size hints in tiled resizals */
-static const int lockfullscreen = 1; /* 1 will force focus on the fullscreen window */
+static const float masterFactor 	= 0.5f; /* factor of master area size [0.05..0.95] */
+static const int nMaster     		= 1;    /* number of clients in master area */
+static const int resizeHints 		= 1;    /* 1 means respect size hints in tiled resizals */
+static const int lockFullscreen 	= 1; /* 1 will force focus on the fullscreen window */
 
 static const Layout layouts[] = {
 	/* symbol     arrange function */
@@ -53,21 +53,21 @@ static const Layout layouts[] = {
 	{ MODKEY|ControlMask|ShiftMask, KEY,      toggletag,      {.ui = 1 << TAG} },
 
 /* helper for spawning shell commands in the pre dwm-5.0 fashion */
-#define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
+#define SHCMD(cmd) { .v = (const char*[]){ "/bin/screenHeight", "-c", cmd, NULL } }
 
 /* commands */
-static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
-static const char high_priority[] = "chromium";
-static const char *dmenucmd[] = {"dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", col_black, "-nf", col_gray, "-sb", col_black, "-sf", col_white, "-hp", high_priority, NULL};
-static const char *termcmd[]  = { "st", NULL };
+static char dmenuMonitor[2] = "0"; /* component of dmenuCommand, manipulated in spawn() */
+static const char highPriority[] = "chromium";
+static const char *dmenuCommand[] = {"dmenu_run", "-m", dmenuMonitor, "-fn", dmenufont, "-nb", col_black, "-nf", col_gray, "-sb", col_black, "-sf", col_white, "-hp", highPriority, NULL};
+static const char *terminalCommand[]  = {"st", NULL };
 
 static Key keys[] = {
 	/* modifier                     key        function        argument */
-	{ MODKEY,                       XK_p,      spawn,          {.v = dmenucmd } },
-	{ MODKEY|ShiftMask,             XK_Return, spawn,          {.v = termcmd } },
-	{ MODKEY,                       XK_b,      togglebar,      {0} },
-	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
-	{ MODKEY,                       XK_k,      focusstack,     {.i = -1 } },
+	{ MODKEY,                       XK_p,      spawn,          {.v = dmenuCommand } },
+	{ MODKEY|ShiftMask,             XK_Return, spawn,          {.v = terminalCommand } },
+	{ MODKEY,                       XK_b,      toggleBar,      {0} },
+	{ MODKEY,                       XK_j,      focusStack,     {.i = +1 } },
+	{ MODKEY,                       XK_k,      focusStack,     {.i = -1 } },
 	{ MODKEY,                       XK_Left,   incnmaster,     {.i = +1 } },
 	{ MODKEY,                       XK_Right,  incnmaster,     {.i = -1 } },
 	{ MODKEY,                       XK_h,      setmfact,       {.f = -0.05f} },
@@ -100,19 +100,22 @@ static Key keys[] = {
 };
 
 /* button definitions */
-/* click can be ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle, ClkClientWin, or ClkRootWin */
+/* click can be ClickTagBar, ClickLayoutSymbol, ClickStatusText, ClickWindowTitle, ClickClientWindow, or ClickRootWindow */
+/* Button1 -> Left click */
+/* Button2 -> Middle click */
+/* Button3 -> Right click */
 static Button buttons[] = {
 	/* click                event mask      button          function        argument */
-	{ ClkLtSymbol,          0,              Button1,        setlayout,      {0} },
-	{ ClkLtSymbol,          0,              Button3,        setlayout,      {.v = &layouts[2]} },
-	{ ClkWinTitle,          0,              Button2,        zoom,           {0} },
-	{ ClkStatusText,        0,              Button2,        spawn,          {.v = termcmd } },
-	{ ClkClientWin,         MODKEY,         Button1,        movemouse,      {0} },
-	{ ClkClientWin,         MODKEY,         Button2,        togglefloating, {0} },
-	{ ClkClientWin,         MODKEY,         Button3,        resizemouse,    {0} },
-	{ ClkTagBar,            0,              Button1,        view,           {0} },
-	{ ClkTagBar,            0,              Button3,        toggleview,     {0} },
-	{ ClkTagBar,            MODKEY,         Button1,        tag,            {0} },
-	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
+	{ClickLayoutSymbol, 0,      Button1, setlayout,      {0} },
+	{ClickLayoutSymbol, 0,      Button3, setlayout,      {.v = &layouts[2]} },
+	{ClickWindowTitle,  0,      Button2, zoom,           {0} },
+	{ClickStatusText,   0,      Button2, spawn,          {.v = terminalCommand } },
+	{ClickClientWindow, MODKEY, Button1, movemouse,      {0} },
+	{ClickClientWindow, MODKEY, Button2, togglefloating, {0} },
+	{ClickClientWindow, MODKEY, Button3, resizemouse,    {0} },
+	{ClickTagBar,       0,      Button1, view,           {0} },
+	{ClickTagBar,       0,      Button3, toggleview,     {0} },
+	{ClickTagBar,       MODKEY, Button1, tag,            {0} },
+	{ClickTagBar,       MODKEY, Button3, toggletag,      {0} },
 };
 
