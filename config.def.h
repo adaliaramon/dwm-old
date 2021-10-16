@@ -1,17 +1,17 @@
 /* See LICENSE file for copyright and license details. */
 
 /* appearance */
-static const unsigned int borderpx  = 1;        /* border pixel of windows */
-static const unsigned int snap      = 32;       /* snap pixel */
-static const int showbar            = 0;        /* 0 means no bar */
-static const int topbar             = 0;        /* 0 means bottom bar */
-static const char *fonts[]          = { "RobotoMono Nerd Font:size=12" };
-static const char dmenufont[]       = "RobotoMono Nerd Font:size=12";
-static const char col_black[]       = "#000000";
-static const char col_white[]       = "#ffffff";
-static const char col_blue[]        = "#0025ff";
-static const char col_gray[]        = "#585858";
-static const char *colors[][3]      = {
+static const unsigned int borderWidth  = 1;        /* border pixel of windows */
+static const unsigned int snap         = 32;       /* snap pixel */
+static const int showbar               = 0;        /* 0 means no bar */
+static const int topbar                = 0;        /* 0 means bottom bar */
+static const char *fonts[]             = { "RobotoMono Nerd Font:size=12" };
+static const char dmenufont[]          = "RobotoMono Nerd Font:size=12";
+static const char col_black[]          = "#000000";
+static const char col_white[]          = "#ffffff";
+static const char col_blue[]           = "#0025ff";
+static const char col_gray[]           = "#585858";
+static const char *colors[][3]         = {
 	/*               fg         bg         border   */
 	[SchemeNorm] = { col_gray,  col_black, col_gray  },
 	[SchemeSel]  = { col_white, col_blue,  col_blue  },

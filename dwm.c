@@ -164,19 +164,19 @@ static void drawBars(void);
 static void enternotify(XEvent *e);
 static void expose(XEvent *e);
 static void focus(Client *client);
-static void focusin(XEvent *e);
+static void focusIn(XEvent *e);
 static void focusmon(const Argument *arg);
 static void focusStack(const Argument *argument);
 static Atom getatomprop(Client *c, Atom prop);
 static int getRootPointer(int *x, int *y);
-static long getstate(Window w);
+static long getState(Window window);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static void grabButtons(Client *c, int focused);
 static void grabkeys(void);
 static void incnmaster(const Argument *arg);
 static void keyPress(XEvent *event);
 static void killclient(const Argument *arg);
-static void manage(Window w, XWindowAttributes *wa);
+static void manage(Window window, XWindowAttributes *windowAttributes);
 static void mappingnotify(XEvent *e);
 static void maprequest(XEvent *e);
 static void monocle(Monitor *m);
@@ -252,7 +252,7 @@ static void (*handler[LASTEvent]) (XEvent *) = {
 	[DestroyNotify] = destroynotify,
 	[EnterNotify] = enternotify,
 	[Expose] = expose,
-	[FocusIn] = focusin,
+	[FocusIn] = focusIn,
 	[KeyPress] = keyPress, // Keyboard handler
 	[MappingNotify] = mappingnotify,
 	[MapRequest] = maprequest,
@@ -260,7 +260,7 @@ static void (*handler[LASTEvent]) (XEvent *) = {
 	[PropertyNotify] = propertynotify,
 	[UnmapNotify] = unmapnotify
 };
-static Atom wmatom[WMLast], netatom[NetLast];
+static Atom wmAtom[WMLast], netAtom[NetLast];
 static int running = 1;
 static Cur *cursor[CurLast];
 static Color **scheme;
@@ -512,7 +512,7 @@ cleanup(void)
 	drw_free(draw);
 	XSync(display, False);
 	XSetInputFocus(display, PointerRoot, RevertToPointerRoot, CurrentTime);
-	XDeleteProperty(display, root, netatom[NetActiveWindow]);
+	XDeleteProperty(display, root, netAtom[NetActiveWindow]);
 }
 
 void
@@ -539,12 +539,12 @@ clientmessage(XEvent *e)
 
 	if (!c)
 		return;
-	if (cme->message_type == netatom[NetWMState]) {
-		if (cme->data.l[1] == netatom[NetWMFullscreen]
-		|| cme->data.l[2] == netatom[NetWMFullscreen])
+	if (cme->message_type == netAtom[NetWMState]) {
+		if (cme->data.l[1] == netAtom[NetWMFullscreen]
+		|| cme->data.l[2] == netAtom[NetWMFullscreen])
 			setfullscreen(c, (cme->data.l[0] == 1 /* _NET_WM_STATE_ADD    */
 				|| (cme->data.l[0] == 2 /* _NET_WM_STATE_TOGGLE */ && !c->isFullscreen)));
-	} else if (cme->message_type == netatom[NetActiveWindow]) {
+	} else if (cme->message_type == netAtom[NetActiveWindow]) {
 		if (c != selectedMonitor->selectedClient && !c->isUrgent)
 			seturgent(c, 1);
 	}
@@ -787,6 +787,52 @@ void drawBars(void) {
         drawBar(monitor);
 }
 
+void dwindle(Monitor *mon) {
+    unsigned int i, n, nx, ny, nw, nh;
+    Client *c;
+
+    for(n = 0, c = nexttiled(mon->clients); c; c = nexttiled(c->next), n++);
+    if(n == 0)
+        return;
+
+    nx = mon->windowX;
+    ny = 0;
+    nw = mon->windowWidth;
+    nh = mon->windowHeight;
+
+    for(i = 0, c = nexttiled(mon->clients); c; c = nexttiled(c->next)) {
+        if((i % 2 && nh / 2 > 2 * c->borderWidth)
+           || (!(i % 2) && nw / 2 > 2 * c->borderWidth)) {
+            if(i < n - 1) {
+                if(i % 2)
+                    nh /= 2;
+                else
+                    nw /= 2;
+            }
+            if((i % 4) == 0) {
+                ny += nh;
+            }
+            else if((i % 4) == 1)
+                nx += nw;
+            else if((i % 4) == 2)
+                ny += nh;
+            else if((i % 4) == 3) {
+                nx += nw;
+            }
+            if(i == 0)
+            {
+                if(n != 1)
+                    nw = mon->windowWidth * mon->masterFactor;
+                ny = mon->windowY;
+            }
+            else if(i == 1)
+                nw = mon->windowWidth - nw;
+            i++;
+        }
+        resize(c, nx, ny, nw - 2 * c->borderWidth, nh - 2 * c->borderWidth, False);
+    }
+}
+
 void
 enternotify(XEvent *e)
 {
@@ -840,19 +886,16 @@ void focus(Client *client) {
         setFocus(client);
 	} else {
 		XSetInputFocus(display, root, RevertToPointerRoot, CurrentTime);
-		XDeleteProperty(display, root, netatom[NetActiveWindow]);
+		XDeleteProperty(display, root, netAtom[NetActiveWindow]);
 	}
     selectedMonitor->selectedClient = client;
     drawBars();
 }
 
 /* there are some broken focus acquiring clients needing extra handling */
-void
-focusin(XEvent *e)
-{
-	XFocusChangeEvent *ev = &e->xfocus;
-
-	if (selectedMonitor->selectedClient && ev->window != selectedMonitor->selectedClient->window)
+void focusIn(XEvent *e) {
+	XFocusChangeEvent *focusChangeEvent = &e->xfocus;
+	if (selectedMonitor->selectedClient && focusChangeEvent->window != selectedMonitor->selectedClient->window)
         setFocus(selectedMonitor->selectedClient);
 }
 
@@ -933,16 +976,14 @@ getRootPointer(int *x, int *y)
 	return XQueryPointer(display, root, &dummy, &dummy, x, y, &di, &di, &dui);
 }
 
-long
-getstate(Window w)
-{
+long getState(Window window) {
 	int format;
 	long result = -1;
 	unsigned char *p = NULL;
 	unsigned long n, extra;
 	Atom real;
 
-	if (XGetWindowProperty(display, w, wmatom[WMState], 0L, 2L, False, wmatom[WMState],
+	if (XGetWindowProperty(display, window, wmAtom[WMState], 0L, 2L, False, wmAtom[WMState],
                            &real, &format, &n, &extra, (unsigned char **)&p) != Success)
 		return -1;
 	if (n != 0)
@@ -1049,7 +1090,7 @@ killclient(const Argument *arg)
 {
 	if (!selectedMonitor->selectedClient)
 		return;
-	if (!sendevent(selectedMonitor->selectedClient, wmatom[WMDelete])) {
+	if (!sendevent(selectedMonitor->selectedClient, wmAtom[WMDelete])) {
 		XGrabServer(display);
 		XSetErrorHandler(xerrordummy);
 		XSetCloseDownMode(display, DestroyAll);
@@ -1060,24 +1101,22 @@ killclient(const Argument *arg)
 	}
 }
 
-void
-manage(Window w, XWindowAttributes *wa)
-{
+void manage(Window window, XWindowAttributes *windowAttributes) {
 	Client *c, *t = NULL;
 	Window trans = None;
-	XWindowChanges wc;
+	XWindowChanges windowChanges;
 
 	c = ecalloc(1, sizeof(Client));
-	c->window = w;
+	c->window = window;
 	/* geometry */
-	c->x = c->oldx = wa->x;
-	c->y = c->oldy = wa->y;
-	c->w = c->oldw = wa->width;
-	c->h = c->oldh = wa->height;
-	c->oldBorderWidth = wa->border_width;
+	c->x = c->oldx = windowAttributes->x;
+	c->y = c->oldy = windowAttributes->y;
+	c->w = c->oldw = windowAttributes->width;
+	c->h = c->oldh = windowAttributes->height;
+	c->oldBorderWidth = windowAttributes->border_width;
 
 	updatetitle(c);
-	if (XGetTransientForHint(display, w, &trans) && (t = windowToClient(trans))) {
+	if (XGetTransientForHint(display, window, &trans) && (t = windowToClient(trans))) {
 		c->monitor = t->monitor;
 		c->tags = t->tags;
 	} else {
@@ -1093,16 +1132,16 @@ manage(Window w, XWindowAttributes *wa)
 	/* only fix client y-offset, if the client center might cover the bar */
 	c->y = MAX(c->y, ((c->monitor->by == c->monitor->monitorY) && (c->x + (c->w / 2) >= c->monitor->windowX)
                       && (c->x + (c->w / 2) < c->monitor->windowX + c->monitor->windowWidth)) ? barHeight : c->monitor->monitorY);
-	c->borderWidth = borderpx;
+	c->borderWidth = borderWidth;
 
-	wc.border_width = c->borderWidth;
-	XConfigureWindow(display, w, CWBorderWidth, &wc);
-	XSetWindowBorder(display, w, scheme[SchemeNorm][ColBorder].pixel);
+    windowChanges.border_width = c->borderWidth;
+	XConfigureWindow(display, window, CWBorderWidth, &windowChanges);
+	XSetWindowBorder(display, window, scheme[SchemeNorm][ColBorder].pixel);
 	configure(c); /* propagates border_width, if size doesn't change */
 	updatewindowtype(c);
 	updatesizehints(c);
 	updatewmhints(c);
-	XSelectInput(display, w, EnterWindowMask | FocusChangeMask | PropertyChangeMask | StructureNotifyMask);
+	XSelectInput(display, window, EnterWindowMask | FocusChangeMask | PropertyChangeMask | StructureNotifyMask);
     grabButtons(c, 0);
 	if (!c->isFloating)
         c->isFloating = c->oldState = trans != None || c->isFixed;
@@ -1110,7 +1149,7 @@ manage(Window w, XWindowAttributes *wa)
 		XRaiseWindow(display, c->window);
 	attachBelow(c);
     attachStack(c);
-	XChangeProperty(display, root, netatom[NetClientList], XA_WINDOW, 32, PropModeAppend,
+	XChangeProperty(display, root, netAtom[NetClientList], XA_WINDOW, 32, PropModeAppend,
                     (unsigned char *) &(c->window), 1);
 	XMoveResizeWindow(display, c->window, c->x + 2 * screenWidth, c->y, c->w, c->h); /* some windows require this */
 	setclientstate(c, NormalState);
@@ -1289,12 +1328,12 @@ propertynotify(XEvent *e)
                 drawBars();
 			break;
 		}
-		if (ev->atom == XA_WM_NAME || ev->atom == netatom[NetWMName]) {
+		if (ev->atom == XA_WM_NAME || ev->atom == netAtom[NetWMName]) {
 			updatetitle(c);
 			if (c == c->monitor->selectedClient)
                 drawBar(c->monitor);
 		}
-		if (ev->atom == netatom[NetWMWindowType])
+		if (ev->atom == netAtom[NetWMWindowType])
 			updatewindowtype(c);
 	}
 }
@@ -1443,27 +1482,36 @@ void run(void) {
 }
 
 void scan(void) {
-    unsigned int i, num;
-	Window d1, d2, *wins = NULL;
-	XWindowAttributes wa;
+    unsigned int i, numberOfChildren;
+	Window rootReturn, unused, *children = NULL;
+	XWindowAttributes windowAttributes;
 
-	if (XQueryTree(display, root, &d1, &d2, &wins, &num)) {
-		for (i = 0; i < num; i++) {
-			if (!XGetWindowAttributes(display, wins[i], &wa)
-			|| wa.override_redirect || XGetTransientForHint(display, wins[i], &d1))
-				continue;
-			if (wa.map_state == IsViewable || getstate(wins[i]) == IconicState)
-				manage(wins[i], &wa);
+    /* Get the children of the root window (i.e. all Windows), and continue if they exist */
+	if (XQueryTree(display, root, &rootReturn, &unused, &children, &numberOfChildren)) {
+		for (i = 0; i < numberOfChildren; i++) {
+            /* The override_redirect member is set to indicate whether this window
+             * overrides structure control facilities and can be True or False.
+             * Window manager clients should ignore the window if this member is True.
+             * XGetTransientForHint returns non-zero on success,
+             * which happens if the WM_TRANSIENT_FOR property is set for the passed window.
+             * Usually, this is the case only for transient windows, such as a dialog */
+			if (!XGetWindowAttributes(display, children[i], &windowAttributes)
+                || windowAttributes.override_redirect || XGetTransientForHint(display, children[i], &rootReturn)) {
+                continue;
+            }
+			if (windowAttributes.map_state == IsViewable || getState(children[i]) == IconicState) {
+                manage(children[i], &windowAttributes);
+            }
 		}
-		for (i = 0; i < num; i++) { /* now the transients */
-			if (!XGetWindowAttributes(display, wins[i], &wa))
+		for (i = 0; i < numberOfChildren; i++) { /* now the transients */
+			if (!XGetWindowAttributes(display, children[i], &windowAttributes))
 				continue;
-			if (XGetTransientForHint(display, wins[i], &d1)
-			&& (wa.map_state == IsViewable || getstate(wins[i]) == IconicState))
-				manage(wins[i], &wa);
+			if (XGetTransientForHint(display, children[i], &rootReturn)
+			&& (windowAttributes.map_state == IsViewable || getState(children[i]) == IconicState))
+				manage(children[i], &windowAttributes);
 		}
-		if (wins)
-			XFree(wins);
+		if (children)
+			XFree(children);
 	}
 }
 
@@ -1488,7 +1536,7 @@ setclientstate(Client *c, long state)
 {
 	long data[] = { state, None };
 
-	XChangeProperty(display, c->window, wmatom[WMState], wmatom[WMState], 32,
+	XChangeProperty(display, c->window, wmAtom[WMState], wmAtom[WMState], 32,
                     PropModeReplace, (unsigned char *)data, 2);
 }
 
@@ -1508,7 +1556,7 @@ sendevent(Client *c, Atom proto)
 	if (exists) {
 		ev.type = ClientMessage;
 		ev.xclient.window = c->window;
-		ev.xclient.message_type = wmatom[WMProtocols];
+		ev.xclient.message_type = wmAtom[WMProtocols];
 		ev.xclient.format = 32;
 		ev.xclient.data.l[0] = proto;
 		ev.xclient.data.l[1] = CurrentTime;
@@ -1520,19 +1568,19 @@ sendevent(Client *c, Atom proto)
 void setFocus(Client *c) {
 	if (!c->neverFocus) {
 		XSetInputFocus(display, c->window, RevertToPointerRoot, CurrentTime);
-		XChangeProperty(display, root, netatom[NetActiveWindow],
+		XChangeProperty(display, root, netAtom[NetActiveWindow],
                         XA_WINDOW, 32, PropModeReplace,
                         (unsigned char *) &(c->window), 1);
 	}
-	sendevent(c, wmatom[WMTakeFocus]);
+	sendevent(c, wmAtom[WMTakeFocus]);
 }
 
 void
 setfullscreen(Client *c, int fullscreen)
 {
 	if (fullscreen && !c->isFullscreen) {
-		XChangeProperty(display, c->window, netatom[NetWMState], XA_ATOM, 32,
-                        PropModeReplace, (unsigned char*)&netatom[NetWMFullscreen], 1);
+		XChangeProperty(display, c->window, netAtom[NetWMState], XA_ATOM, 32,
+                        PropModeReplace, (unsigned char*)&netAtom[NetWMFullscreen], 1);
 		c->isFullscreen = 1;
 		c->oldState = c->isFloating;
 		c->oldBorderWidth = c->borderWidth;
@@ -1541,7 +1589,7 @@ setfullscreen(Client *c, int fullscreen)
 		resizeclient(c, c->monitor->monitorX, c->monitor->monitorY, c->monitor->monitorWidth, c->monitor->monitorHeight);
 		XRaiseWindow(display, c->window);
 	} else if (!fullscreen && c->isFullscreen){
-		XChangeProperty(display, c->window, netatom[NetWMState], XA_ATOM, 32,
+		XChangeProperty(display, c->window, netAtom[NetWMState], XA_ATOM, 32,
                         PropModeReplace, (unsigned char*)0, 0);
 		c->isFullscreen = 0;
 		c->isFloating = c->oldState;
@@ -1604,19 +1652,20 @@ void setup(void) {
     updateGeometry();
 	/* init atoms */
 	utf8String = XInternAtom(display, "UTF8_STRING", False);
-	wmatom[WMProtocols] = XInternAtom(display, "WM_PROTOCOLS", False);
-	wmatom[WMDelete] = XInternAtom(display, "WM_DELETE_WINDOW", False);
-	wmatom[WMState] = XInternAtom(display, "WM_STATE", False);
-	wmatom[WMTakeFocus] = XInternAtom(display, "WM_TAKE_FOCUS", False);
-	netatom[NetActiveWindow] = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
-	netatom[NetSupported] = XInternAtom(display, "_NET_SUPPORTED", False);
-	netatom[NetWMName] = XInternAtom(display, "_NET_WM_NAME", False);
-	netatom[NetWMState] = XInternAtom(display, "_NET_WM_STATE", False);
-	netatom[NetWMCheck] = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", False);
-	netatom[NetWMFullscreen] = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False);
-	netatom[NetWMWindowType] = XInternAtom(display, "_NET_WM_WINDOW_TYPE", False);
-	netatom[NetWMWindowTypeDialog] = XInternAtom(display, "_NET_WM_WINDOW_TYPE_DIALOG", False);
-	netatom[NetClientList] = XInternAtom(display, "_NET_CLIENT_LIST", False);
+    /* List of protocols the client is willing to participate in (with the window manager */
+    wmAtom[WMProtocols] = XInternAtom(display, "WM_PROTOCOLS", False);
+    wmAtom[WMDelete] = XInternAtom(display, "WM_DELETE_WINDOW", False); // Protocol: request to delete top-level window
+    wmAtom[WMState] = XInternAtom(display, "WM_STATE", False);
+    wmAtom[WMTakeFocus] = XInternAtom(display, "WM_TAKE_FOCUS", False);
+    netAtom[NetActiveWindow] = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
+    netAtom[NetSupported] = XInternAtom(display, "_NET_SUPPORTED", False);
+    netAtom[NetWMName] = XInternAtom(display, "_NET_WM_NAME", False);
+    netAtom[NetWMState] = XInternAtom(display, "_NET_WM_STATE", False);
+    netAtom[NetWMCheck] = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", False);
+    netAtom[NetWMFullscreen] = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False);
+    netAtom[NetWMWindowType] = XInternAtom(display, "_NET_WM_WINDOW_TYPE", False);
+    netAtom[NetWMWindowTypeDialog] = XInternAtom(display, "_NET_WM_WINDOW_TYPE_DIALOG", False);
+    netAtom[NetClientList] = XInternAtom(display, "_NET_CLIENT_LIST", False);
 	/* init cursors */
 	cursor[CurNormal] = drw_cur_create(draw, XC_left_ptr);
 	cursor[CurResize] = drw_cur_create(draw, XC_sizing);
@@ -1630,16 +1679,16 @@ void setup(void) {
 	updatestatus();
 	/* supporting window for NetWMCheck */
 	wmcheckwin = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0);
-	XChangeProperty(display, wmcheckwin, netatom[NetWMCheck], XA_WINDOW, 32,
+	XChangeProperty(display, wmcheckwin, netAtom[NetWMCheck], XA_WINDOW, 32,
                     PropModeReplace, (unsigned char *) &wmcheckwin, 1);
-	XChangeProperty(display, wmcheckwin, netatom[NetWMName], utf8String, 8,
+	XChangeProperty(display, wmcheckwin, netAtom[NetWMName], utf8String, 8,
                     PropModeReplace, (unsigned char *) "dwm", 3);
-	XChangeProperty(display, root, netatom[NetWMCheck], XA_WINDOW, 32,
+	XChangeProperty(display, root, netAtom[NetWMCheck], XA_WINDOW, 32,
                     PropModeReplace, (unsigned char *) &wmcheckwin, 1);
 	/* EWMH support per view */
-	XChangeProperty(display, root, netatom[NetSupported], XA_ATOM, 32,
-                    PropModeReplace, (unsigned char *) netatom, NetLast);
-	XDeleteProperty(display, root, netatom[NetClientList]);
+	XChangeProperty(display, root, netAtom[NetSupported], XA_ATOM, 32,
+                    PropModeReplace, (unsigned char *) netAtom, NetLast);
+	XDeleteProperty(display, root, netAtom[NetClientList]);
 	/* select events */
 	windowAttributes.cursor = cursor[CurNormal]->cursor;
     windowAttributes.event_mask = SubstructureRedirectMask | SubstructureNotifyMask
@@ -1769,53 +1818,6 @@ tile(Monitor *m)
 		}
 }
 
-void
-dwindle(Monitor *mon) {
-	unsigned int i, n, nx, ny, nw, nh;
-	Client *c;
-
-	for(n = 0, c = nexttiled(mon->clients); c; c = nexttiled(c->next), n++);
-	if(n == 0)
-		return;
-
-	nx = mon->windowX;
-	ny = 0;
-	nw = mon->windowWidth;
-	nh = mon->windowHeight;
-
-	for(i = 0, c = nexttiled(mon->clients); c; c = nexttiled(c->next)) {
-		if((i % 2 && nh / 2 > 2 * c->borderWidth)
-		   || (!(i % 2) && nw / 2 > 2 * c->borderWidth)) {
-			if(i < n - 1) {
-				if(i % 2)
-					nh /= 2;
-				else
-					nw /= 2;
-			}
-			if((i % 4) == 0) {
-				ny += nh;
-			}
-			else if((i % 4) == 1)
-				nx += nw;
-			else if((i % 4) == 2)
-				ny += nh;
-			else if((i % 4) == 3) {
-				nx += nw;
-			}
-			if(i == 0)
-			{
-				if(n != 1)
-					nw = mon->windowWidth * mon->masterFactor;
-				ny = mon->windowY;
-			}
-			else if(i == 1)
-				nw = mon->windowWidth - nw;
-			i++;
-		}
-		resize(c, nx, ny, nw - 2 * c->borderWidth, nh - 2 * c->borderWidth, False);
-	}
-}
-
 void toggleBar(const Argument *argument) {
     selectedMonitor->showBar = !selectedMonitor->showBar;
 	updatebarpos(selectedMonitor);
@@ -1873,7 +1875,7 @@ unfocus(Client *c, int setfocus)
 	XSetWindowBorder(display, c->window, scheme[SchemeNorm][ColBorder].pixel);
 	if (setfocus) {
 		XSetInputFocus(display, root, RevertToPointerRoot, CurrentTime);
-		XDeleteProperty(display, root, netatom[NetActiveWindow]);
+		XDeleteProperty(display, root, netAtom[NetActiveWindow]);
 	}
 }
 
@@ -1957,10 +1959,10 @@ updateclientlist()
 	Client *c;
 	Monitor *m;
 
-	XDeleteProperty(display, root, netatom[NetClientList]);
+	XDeleteProperty(display, root, netAtom[NetClientList]);
 	for (m = monitors; m; m = m->next)
 		for (c = m->clients; c; c = c->next)
-			XChangeProperty(display, root, netatom[NetClientList],
+			XChangeProperty(display, root, netAtom[NetClientList],
                             XA_WINDOW, 32, PropModeAppend,
                             (unsigned char *) &(c->window), 1);
 }
@@ -2112,7 +2114,7 @@ updatestatus(void)
 void
 updatetitle(Client *c)
 {
-	if (!gettextprop(c->window, netatom[NetWMName], c->name, sizeof c->name))
+	if (!gettextprop(c->window, netAtom[NetWMName], c->name, sizeof c->name))
 		gettextprop(c->window, XA_WM_NAME, c->name, sizeof c->name);
 	if (c->name[0] == '\0') /* hack to mark broken clients */
 		strcpy(c->name, broken);
@@ -2121,12 +2123,12 @@ updatetitle(Client *c)
 void
 updatewindowtype(Client *c)
 {
-	Atom state = getatomprop(c, netatom[NetWMState]);
-	Atom wtype = getatomprop(c, netatom[NetWMWindowType]);
+	Atom state = getatomprop(c, netAtom[NetWMState]);
+	Atom wtype = getatomprop(c, netAtom[NetWMWindowType]);
 
-	if (state == netatom[NetWMFullscreen])
+	if (state == netAtom[NetWMFullscreen])
 		setfullscreen(c, 1);
-	if (wtype == netatom[NetWMWindowTypeDialog])
+	if (wtype == netAtom[NetWMWindowTypeDialog])
 		c->isFloating = 1;
 }
 
