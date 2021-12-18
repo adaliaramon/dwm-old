@@ -57,7 +57,7 @@ static const Layout layouts[] = {
 
 /* commands */
 static char dmenuMonitor[2] = "0"; /* component of dmenuCommand, manipulated in spawn() */
-static const char highPriority[] = "chromium";
+static const char highPriority[] = "chromium,librewolf";
 static const char *dmenuCommand[] = {"dmenu_run", "-m", dmenuMonitor, "-fn", dmenufont, "-nb", col_black, "-nf", col_gray, "-sb", col_black, "-sf", col_white, "-hp", highPriority, NULL};
 static const char *terminalCommand[]  = {"st", NULL };
 
