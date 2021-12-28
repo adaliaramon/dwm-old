@@ -5,8 +5,8 @@ static const unsigned int borderWidth  = 1;        /* border pixel of windows */
 static const unsigned int snap         = 32;       /* snap pixel */
 static const int showbar               = 0;        /* 0 means no bar */
 static const int topbar                = 0;        /* 0 means bottom bar */
-static const char *fonts[]             = { "RobotoMono Nerd Font:size=12" };
-static const char dmenufont[]          = "RobotoMono Nerd Font:size=12";
+static const char *fonts[]             = { "Roboto-Regular:size=12" };
+static const char dmenufont[]          = "Roboto-Regular:size=12";
 static const char col_black[]          = "#000000";
 static const char col_white[]          = "#ffffff";
 static const char col_blue[]           = "#0025ff";
@@ -57,7 +57,7 @@ static const Layout layouts[] = {
 
 /* commands */
 static char dmenuMonitor[2] = "0"; /* component of dmenuCommand, manipulated in spawn() */
-static const char highPriority[] = "chromium,librewolf";
+static const char highPriority[] = "chromium,librewolf,tenacity";
 static const char *dmenuCommand[] = {"dmenu_run", "-m", dmenuMonitor, "-fn", dmenufont, "-nb", col_black, "-nf", col_gray, "-sb", col_black, "-sf", col_white, "-hp", highPriority, NULL};
 static const char *terminalCommand[]  = {"st", NULL };
 
