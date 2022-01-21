@@ -715,6 +715,9 @@ void drawBar(Monitor *monitor) {
 	unsigned int i, occ = 0, urg = 0, n = 0;
 	Client *c;
 
+	if (!monitor->showBar)
+		return;
+
 	/* Draw status first, so it can be overdrawn by tags later */
 	if (monitor == selectedMonitor) { /* Status is only drawn on selected monitor */
         drawSetColorScheme(draw, scheme[SchemeNorm]);
@@ -873,11 +876,11 @@ void focus(Client *client) {
     }
 	if (client) {
         /* Update the currently selected monitor, if necessary */
-        if (client->monitor != selectedMonitor) { 
-            selectedMonitor = client->monitor; 
+        if (client->monitor != selectedMonitor) {
+            selectedMonitor = client->monitor;
         }
-        if (client->isUrgent) { 
-            seturgent(client, 0); 
+        if (client->isUrgent) {
+            seturgent(client, 0);
         }
         detachStack(client);
         attachStack(client);
